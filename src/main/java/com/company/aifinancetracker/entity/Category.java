@@ -1,8 +1,10 @@
 package com.company.aifinancetracker.entity;
 
+import io.jmix.core.DeletePolicy;
 import io.jmix.core.annotation.DeletedBy;
 import io.jmix.core.annotation.DeletedDate;
 import io.jmix.core.entity.annotation.JmixGeneratedValue;
+import io.jmix.core.entity.annotation.OnDelete;
 import io.jmix.core.metamodel.annotation.InstanceName;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 import jakarta.persistence.*;
@@ -26,6 +28,14 @@ public class Category {
     @InstanceName
     @Column(name = "NAME")
     private String name;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name="USER_ID")
+    @OnDelete(DeletePolicy.DENY)
+    private User user;
+
+    @Column(name = "SYSTEM_CATEGORY")
+    private Boolean systemCategory;
 
     @Column(name = "VERSION", nullable = false)
     @Version
@@ -54,6 +64,19 @@ public class Category {
     @DeletedDate
     @Column(name = "DELETED_DATE")
     private OffsetDateTime deletedDate;
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+
+    public Boolean getSystemCategory(){ return systemCategory; }
+
+    public void setSystemCategory(Boolean systemCategory){ this.systemCategory = systemCategory; }
 
     public String getName() {
         return name;

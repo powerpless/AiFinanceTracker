@@ -30,6 +30,7 @@ dependencies {
     implementation 'io.jmix.localfs:jmix-localfs-starter'
     implementation 'io.jmix.flowui:jmix-flowui-starter'
     implementation 'io.jmix.flowui:jmix-flowui-data-starter'
+    implementation "org.postgresql:postgresql:42.6.0"
     implementation 'io.jmix.flowui:jmix-flowui-themes'
     implementation 'io.jmix.datatools:jmix-datatools-starter'
     implementation 'io.jmix.datatools:jmix-datatools-flowui-starter'

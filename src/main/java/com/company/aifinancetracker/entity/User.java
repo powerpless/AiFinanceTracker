@@ -1,18 +1,22 @@
 package com.company.aifinancetracker.entity;
 
+import io.jmix.core.DeletePolicy;
 import io.jmix.core.HasTimeZone;
 import io.jmix.core.annotation.Secret;
 import io.jmix.core.entity.annotation.JmixGeneratedValue;
+import io.jmix.core.entity.annotation.OnDeleteInverse;
 import io.jmix.core.entity.annotation.SystemLevel;
 import io.jmix.core.metamodel.annotation.DependsOnProperties;
 import io.jmix.core.metamodel.annotation.InstanceName;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 import io.jmix.security.authentication.JmixUserDetails;
-import org.springframework.security.core.GrantedAuthority;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
+import org.springframework.security.core.GrantedAuthority;
+
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 
 @JmixEntity
@@ -23,7 +27,7 @@ import java.util.UUID;
 public class User implements JmixUserDetails, HasTimeZone {
 
     @Id
-    @Column(name = "ID")
+    @Column(name = "ID", nullable = false)
     @JmixGeneratedValue
     private UUID id;
 
@@ -55,8 +59,24 @@ public class User implements JmixUserDetails, HasTimeZone {
     @Column(name = "TIME_ZONE_ID")
     private String timeZoneId;
 
+    @OnDeleteInverse(DeletePolicy.UNLINK)
+    @OneToMany(mappedBy = "user")
+    private List<Category> categories;
+
+    @OnDeleteInverse(DeletePolicy.UNLINK)
+    @OneToMany(mappedBy = "user")
+    private List<Transaction> transactions;
+
     @Transient
     private Collection<? extends GrantedAuthority> authorities;
+
+    public List<Category> getCategories() {
+        return categories;
+    }
+
+    public void setCategories(List<Category> categories) {
+        this.categories = categories;
+    }
 
     public UUID getId() {
         return id;
