@@ -5,14 +5,14 @@ import io.jmix.core.metamodel.datatype.EnumClass;
 import org.springframework.lang.Nullable;
 
 
-public enum TransactionType implements EnumClass<String> {
+public enum CategoryType implements EnumClass<String> {
 
-    INCOME("A"),
-    EXPENSE("B");
+    INCOME("INCOME"),
+    EXPENSE("EXPENSE");
 
     private final String id;
 
-    TransactionType(String id) {
+    CategoryType(String id) {
         this.id = id;
     }
 
@@ -21,8 +21,8 @@ public enum TransactionType implements EnumClass<String> {
     }
 
     @Nullable
-    public static TransactionType fromId(String id) {
-        for (TransactionType at : TransactionType.values()) {
+    public static CategoryType fromId(String id) {
+        for (CategoryType at : CategoryType.values()) {
             if (at.getId().equals(id)) {
                 return at;
             }

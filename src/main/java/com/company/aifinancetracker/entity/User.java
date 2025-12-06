@@ -70,6 +70,14 @@ public class User implements JmixUserDetails, HasTimeZone {
     @Transient
     private Collection<? extends GrantedAuthority> authorities;
 
+    public List<Transaction> getTransactions() {
+        return transactions;
+    }
+
+    public void setTransactions(List<Transaction> transactions) {
+        this.transactions = transactions;
+    }
+
     public List<Category> getCategories() {
         return categories;
     }

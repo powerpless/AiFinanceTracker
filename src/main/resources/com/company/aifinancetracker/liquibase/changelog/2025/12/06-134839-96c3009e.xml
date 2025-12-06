@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                      http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd"
+        objectQuotingStrategy="QUOTE_ONLY_RESERVED_WORDS">
+    <changeSet id="1" author="AiFinanceTracker">
+        <addColumn tableName="TRANSACTION_">
+            <column name="OPERATION_DATE" type="${offsetDateTime.type}"/>
+        </addColumn>
+    </changeSet>
+    <changeSet id="2" author="AiFinanceTracker">
+        <addColumn tableName="CATEGORY">
+            <column name="TYPE_" type="VARCHAR(255)"/>
+        </addColumn>
+
+        <addNotNullConstraint columnName="TYPE_" tableName="CATEGORY"/>
+    </changeSet>
+    <changeSet id="3" author="AiFinanceTracker">
+        <dropColumn columnName="type_" tableName="transaction_"/>
+    </changeSet>
+</databaseChangeLog>

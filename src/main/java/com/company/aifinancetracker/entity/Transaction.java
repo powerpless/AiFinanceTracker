@@ -7,6 +7,7 @@ import io.jmix.core.entity.annotation.JmixGeneratedValue;
 import io.jmix.core.entity.annotation.OnDelete;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -35,10 +36,11 @@ public class Transaction {
     @OnDelete(DeletePolicy.DENY)
     private Category category;
 
-    @Column(nullable = false)
-    @Enumerated(EnumType.STRING)
-    private TransactionType type;
+    @NotNull
+    @Column(name = "OPERATION_DATE")
+    private OffsetDateTime operationDate;
 
+    @NotNull
     @Column(name="AMOUNT")
     private BigDecimal amount;
 
@@ -73,6 +75,14 @@ public class Transaction {
     @Column(name = "CREATED_DATE")
     private OffsetDateTime createdDate;
 
+    public OffsetDateTime getOperationDate() {
+        return operationDate;
+    }
+
+    public void setOperationDate(OffsetDateTime operationDate) {
+        this.operationDate = operationDate;
+    }
+
     public User getUser() {
         return user;
     }
@@ -87,14 +97,6 @@ public class Transaction {
 
     public void setCategory(Category category) {
         this.category = category;
-    }
-
-    public TransactionType getType() {
-        return type;
-    }
-
-    public void setType(TransactionType type) {
-        this.type = type;
     }
 
     public BigDecimal getAmount() {

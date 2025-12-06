@@ -8,6 +8,7 @@ import io.jmix.core.entity.annotation.OnDelete;
 import io.jmix.core.metamodel.annotation.InstanceName;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
@@ -30,12 +31,19 @@ public class Category {
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name="USER_ID")
+    @JoinColumn(name = "USER_ID")
     @OnDelete(DeletePolicy.DENY)
     private User user;
 
+    @NotNull
+    @Enumerated(EnumType.STRING)
+    @Column(name = "TYPE_", nullable = false)
+    private CategoryType type;
+
+
     @Column(name = "SYSTEM_CATEGORY")
     private Boolean systemCategory;
+
 
     @Column(name = "VERSION", nullable = false)
     @Version
@@ -64,6 +72,15 @@ public class Category {
     @DeletedDate
     @Column(name = "DELETED_DATE")
     private OffsetDateTime deletedDate;
+
+
+    public CategoryType getType() {
+        return type;
+    }
+
+    public void setType(CategoryType type) {
+        this.type = type;
+    }
 
     public User getUser() {
         return user;
