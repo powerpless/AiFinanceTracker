@@ -4,40 +4,55 @@ import io.jmix.core.JmixSecurityFilterChainOrder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
-/**
- * This configuration complements standard security configurations that come from Jmix modules (security-flowui, oidc,
- * authserver).
- * <p>
- * You can configure custom API endpoints security by defining {@link SecurityFilterChain} beans in this class.
- * In most cases, custom SecurityFilterChain must be applied first, so the proper
- * {@link org.springframework.core.annotation.Order} should be defined for the bean. The order value from the
- * {@link io.jmix.core.JmixSecurityFilterChainOrder#CUSTOM} is guaranteed to be smaller than any other filter chain
- * order from Jmix.
- * <p>
- * Example:
- *
- * <pre>
- * &#064;Bean
- * &#064;Order(JmixSecurityFilterChainOrder.CUSTOM)
- * SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
- *     http.securityMatcher("/public/**")
- *             .authorizeHttpRequests(authorize ->
- *                     authorize.anyRequest().permitAll()
- *             );
- *     return http.build();
- * }
- * </pre>
- *
- * @see io.jmix.securityflowui.security.FlowuiVaadinWebSecurity
- */
 @Configuration
+@EnableMethodSecurity
 public class AiFinanceTrackerSecurityConfiguration {
+
+    private final JwtAuthenticationFilter jwtAuthFilter;
+    private final UserDetailsService userDetailsService;
+    private final PasswordEncoder passwordEncoder;
+
+    public AiFinanceTrackerSecurityConfiguration(
+            JwtAuthenticationFilter jwtAuthFilter,
+            UserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder
+    ) {
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.userDetailsService = userDetailsService;
+        this.passwordEncoder = passwordEncoder;
+    }
 
     @Bean
     @Order(JmixSecurityFilterChainOrder.CUSTOM)
+    SecurityFilterChain apiFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher("/api/**")
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(authorize ->
+                        authorize
+                                .requestMatchers("/api/auth/**").permitAll()
+                                .anyRequest().authenticated()
+                )
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+
+    @Bean
+    @Order(JmixSecurityFilterChainOrder.CUSTOM + 1)
     SecurityFilterChain publicFilterChain(HttpSecurity http) throws Exception {
         http.securityMatcher("/public/**")
                 .authorizeHttpRequests(authorize ->
@@ -45,5 +60,13 @@ public class AiFinanceTrackerSecurityConfiguration {
                 );
 
         return http.build();
+    }
+
+    @Bean
+    public AuthenticationProvider daoAuthenticationProvider() {
+        DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
+        authProvider.setUserDetailsService(userDetailsService);
+        authProvider.setPasswordEncoder(passwordEncoder);
+        return authProvider;
     }
 }

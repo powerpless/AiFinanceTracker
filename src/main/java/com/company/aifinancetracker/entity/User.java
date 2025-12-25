@@ -49,10 +49,6 @@ public class User implements JmixUserDetails, HasTimeZone {
     @Column(name = "LAST_NAME")
     private String lastName;
 
-    @Email
-    @Column(name = "EMAIL")
-    private String email;
-
     @Column(name = "ACTIVE")
     private Boolean active = true;
 
@@ -125,14 +121,6 @@ public class User implements JmixUserDetails, HasTimeZone {
 
     public void setPassword(final String password) {
         this.password = password;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(final String email) {
-        this.email = email;
     }
 
     public String getFirstName() {
