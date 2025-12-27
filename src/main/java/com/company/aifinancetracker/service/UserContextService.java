@@ -24,7 +24,12 @@ public class UserContextService {
             return null;
         }
 
+        // Always use username from authentication
         String username = authentication.getName();
+        if (username == null || username.isEmpty()) {
+            return null;
+        }
+
         List<User> users = dataManager.load(User.class)
                 .query("select e from User e where e.username = :username")
                 .parameter("username", username)
