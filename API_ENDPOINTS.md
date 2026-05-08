@@ -261,6 +261,75 @@
 
 ---
 
+## ML Рекомендации
+
+> Требует, чтобы был запущен ML-сервис на `http://localhost:8000` (см. `ml-service/README.md` — `docker compose up -d ml-service`).
+
+### GET /api/recommendations
+Получить активные рекомендации текущего пользователя.
+**Ответ:**
+```json
+[
+  {
+    "id": "uuid",
+    "type": "TREND_FORECAST",
+    "status": "ACTIVE",
+    "title": "Растут расходы: Продукты",
+    "message": "По данным за прошлые месяцы прогноз расходов на категорию «Продукты» в следующем месяце — 13500.00 ₽. Тренд возрастающий (модель: линейная регрессия, R²=0.85)...",
+    "savingsEstimate": null,
+    "relatedCategoryId": "uuid",
+    "metadata": "{\"predicted\":13500.00,\"confidence\":0.85,...}",
+    "generatedDate": "2026-05-08T03:00:00Z",
+    "validUntil": "2026-05-15T03:00:00Z"
+  }
+]
+```
+
+Типы рекомендаций (`type`):
+- `TREND_FORECAST` — прогноз растущих расходов в категории (linear regression)
+- `ANOMALY` — аномальная транзакция (z-score)
+- `SAVINGS_TIP` — what-if совет «срежь X на 10% — сэкономишь Y₽»
+
+### POST /api/recommendations/refresh
+Принудительно пересчитать рекомендации для текущего пользователя.
+Возвращает список свежих рекомендаций (предыдущие активные → EXPIRED).
+
+### POST /api/recommendations/{id}/dismiss
+Скрыть рекомендацию (статус → DISMISSED).
+
+### POST /api/recommendations/whatif
+Симулятор экономии без сохранения в БД. На входе — список категорий и процент урезания.
+```json
+{
+  "cuts": [
+    {"categoryId": "uuid-product-category", "cutPercent": 15.0},
+    {"categoryId": "uuid-fun-category", "cutPercent": 25.0}
+  ],
+  "horizonMonths": 3
+}
+```
+**Ответ:**
+```json
+{
+  "horizonMonths": 3,
+  "totalBaseline": 150000.00,
+  "totalWithCuts": 132000.00,
+  "totalSavings": 18000.00,
+  "savingsPercent": 12.0,
+  "monthly": [
+    {"monthOffset": 1, "baseline": 50000.00, "withCuts": 44000.00, "savings": 6000.00},
+    {"monthOffset": 2, "baseline": 50000.00, "withCuts": 44000.00, "savings": 6000.00},
+    {"monthOffset": 3, "baseline": 50000.00, "withCuts": 44000.00, "savings": 6000.00}
+  ],
+  "affectedCategories": ["uuid-product-category", "uuid-fun-category"]
+}
+```
+
+### GET /api/recommendations/health
+Проверка доступности ML-сервиса. `200` если жив, `503` если нет.
+
+---
+
 ## Обработка ошибок
 
 Все endpoints используют централизованный GlobalExceptionHandler.

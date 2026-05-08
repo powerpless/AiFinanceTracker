@@ -1,5 +1,6 @@
 package com.company.aifinancetracker.exception;
 
+import com.company.aifinancetracker.service.MLServiceClient;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.AuthenticationException;
@@ -68,6 +69,13 @@ public class GlobalExceptionHandler {
 
         ValidationErrorResponse response = new ValidationErrorResponse("VALIDATION_FAILED", errors);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(MLServiceClient.MLServiceException.class)
+    public ResponseEntity<ErrorResponse> handleMLServiceUnavailable(MLServiceClient.MLServiceException ex) {
+        ErrorResponse error = new ErrorResponse("ML_SERVICE_UNAVAILABLE",
+                "Recommendation service is temporarily unavailable. Please try again later.");
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
     }
 
     @ExceptionHandler(Exception.class)

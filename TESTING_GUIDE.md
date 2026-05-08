@@ -1240,6 +1240,70 @@ curl -X GET http://localhost:8080/api/dashboard/summary \
 
 ---
 
+## 🤖 8. ML Рекомендации
+
+### Шаг 0: Запуск ML-сервиса
+
+```bash
+# В корне проекта
+docker compose up -d --build ml-service
+curl http://localhost:8000/health
+# {"status":"ok"}
+```
+
+OpenAPI UI ML-сервиса: `http://localhost:8000/docs`
+
+### Шаг 1: Создать историю расходов (минимум 3 месяца, чтобы прогноз работал)
+
+Создай транзакции расходов за последние 3-6 месяцев через `POST /api/expenses` (см. раздел 4). Чем больше точек, тем точнее линейная регрессия.
+
+### Шаг 2: Сгенерировать рекомендации
+```http
+POST http://localhost:8080/api/recommendations/refresh
+Authorization: Bearer YOUR_TOKEN
+```
+
+**Что произойдёт:**
+1. Бэк агрегирует расходы за последние 6 месяцев по категориям
+2. Шлёт данные в Python ML-сервис (`/predict/spending` + `/detect/anomalies`)
+3. Для топ-2 растущих категорий вызывает `/simulate/whatif` с урезанием 10%
+4. Сохраняет советы в таблицу `RECOMMENDATION` (статус `ACTIVE`)
+5. Предыдущие активные советы переводит в `EXPIRED`
+
+### Шаг 3: Получить советы
+```http
+GET http://localhost:8080/api/recommendations
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Шаг 4: What-if симуляция (без сохранения)
+```http
+POST http://localhost:8080/api/recommendations/whatif
+Authorization: Bearer YOUR_TOKEN
+Content-Type: application/json
+
+{
+  "cuts": [
+    {"categoryId": "ID_категории_Развлечения", "cutPercent": 25.0}
+  ],
+  "horizonMonths": 3
+}
+```
+
+**Ответ:** прогноз сбережений за 3 месяца + помесячная разбивка.
+
+### Шаг 5: Скрыть совет
+```http
+POST http://localhost:8080/api/recommendations/{id}/dismiss
+Authorization: Bearer YOUR_TOKEN
+```
+
+### Расписание
+По умолчанию пересчёт идёт каждый день в 03:00 UTC (`ml.scheduler.cron` в `application.properties`).
+Отключить: `ml.scheduler.enabled=false`.
+
+---
+
 ## 🎓 Удачи с дипломной работой! 🚀
 
 **Проект полностью готов к демонстрации и защите!**
@@ -1252,6 +1316,7 @@ curl -X GET http://localhost:8080/api/dashboard/summary \
 ✅ Дашборд с аналитикой (баланс, топ категорий)
 ✅ Бюджетирование с автоматическим расчётом
 ✅ Алерты о превышении бюджета
+✅ ML-рекомендации (прогноз трендов, аномалии, what-if симуляция экономии)
 ✅ Централизованная обработка ошибок
 ✅ Row-level security (пользователь видит только свои данные)
 ✅ Валидация всех входных данных
