@@ -1,15 +1,13 @@
 package com.company.aifinancetracker.service;
 
 import com.company.aifinancetracker.dto.CategoryResponse;
-import com.company.aifinancetracker.dto.IncomeRequest;
-import com.company.aifinancetracker.dto.IncomeResponse;
+import com.company.aifinancetracker.dto.TransactionRequest;
+import com.company.aifinancetracker.dto.TransactionResponse;
 import com.company.aifinancetracker.entity.Category;
-import com.company.aifinancetracker.entity.CategoryType;
 import com.company.aifinancetracker.entity.Transaction;
 import com.company.aifinancetracker.entity.User;
 import com.company.aifinancetracker.exception.AccessDeniedException;
 import com.company.aifinancetracker.exception.EntityNotFoundException;
-import com.company.aifinancetracker.exception.InvalidCategoryTypeException;
 import io.jmix.core.DataManager;
 import io.jmix.core.FetchPlan;
 import io.jmix.core.FetchPlanBuilder;
@@ -23,21 +21,20 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-public class IncomeService {
+public class TransactionService {
 
     private final DataManager dataManager;
     private final UserContextService userContextService;
     private final FetchPlans fetchPlans;
 
-    public IncomeService(DataManager dataManager, UserContextService userContextService, FetchPlans fetchPlans) {
+    public TransactionService(DataManager dataManager, UserContextService userContextService, FetchPlans fetchPlans) {
         this.dataManager = dataManager;
         this.userContextService = userContextService;
         this.fetchPlans = fetchPlans;
     }
 
-    
     @Transactional(readOnly = true)
-    public List<IncomeResponse> getUserIncomes() {
+    public List<TransactionResponse> getUserTransactions() {
         User currentUser = userContextService.getCurrentUser();
         if (currentUser == null) {
             throw new SecurityException("User not authenticated");
@@ -45,21 +42,19 @@ public class IncomeService {
 
         FetchPlan fetchPlan = createTransactionFetchPlan();
 
-        List<Transaction> incomes = dataManager.load(Transaction.class)
+        List<Transaction> transactions = dataManager.load(Transaction.class)
                 .query("select e from Transaction_ e where e.user.id = :userId")
                 .parameter("userId", currentUser.getId())
                 .fetchPlan(fetchPlan)
                 .list();
 
-        return incomes.stream()
-                .filter(t -> t.getCategory().getType().equals(CategoryType.INCOME))
+        return transactions.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    
     @Transactional(readOnly = true)
-    public List<IncomeResponse> getUserIncomesByPeriod(OffsetDateTime startDate, OffsetDateTime endDate) {
+    public List<TransactionResponse> getUserTransactionsByPeriod(OffsetDateTime startDate, OffsetDateTime endDate) {
         User currentUser = userContextService.getCurrentUser();
         if (currentUser == null) {
             throw new SecurityException("User not authenticated");
@@ -71,7 +66,7 @@ public class IncomeService {
 
         FetchPlan fetchPlan = createTransactionFetchPlan();
 
-        List<Transaction> incomes = dataManager.load(Transaction.class)
+        List<Transaction> transactions = dataManager.load(Transaction.class)
                 .query("select e from Transaction_ e where e.user.id = :userId and e.operationDate >= :startDate and e.operationDate <= :endDate")
                 .parameter("userId", currentUser.getId())
                 .parameter("startDate", startDate)
@@ -79,15 +74,13 @@ public class IncomeService {
                 .fetchPlan(fetchPlan)
                 .list();
 
-        return incomes.stream()
-                .filter(t -> t.getCategory().getType().equals(CategoryType.INCOME))
+        return transactions.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    
     @Transactional(readOnly = true)
-    public IncomeResponse getIncomeById(UUID id) {
+    public TransactionResponse getTransactionById(UUID id) {
         User currentUser = userContextService.getCurrentUser();
         if (currentUser == null) {
             throw new SecurityException("User not authenticated");
@@ -95,32 +88,26 @@ public class IncomeService {
 
         FetchPlan fetchPlan = createTransactionFetchPlan();
 
-        Transaction income = dataManager.load(Transaction.class)
+        Transaction transaction = dataManager.load(Transaction.class)
                 .id(id)
                 .fetchPlan(fetchPlan)
                 .optional()
-                .orElseThrow(() -> new EntityNotFoundException("Income", id));
+                .orElseThrow(() -> new EntityNotFoundException("Transaction", id));
 
-        if (!income.getUser().getId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("Access denied: Income belongs to another user");
+        if (!transaction.getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied: Transaction belongs to another user");
         }
 
-        if (!income.getCategory().getType().equals(CategoryType.INCOME)) {
-            throw new InvalidCategoryTypeException("This transaction is not an income");
-        }
-
-        return mapToResponse(income);
+        return mapToResponse(transaction);
     }
 
-    
     @Transactional
-    public IncomeResponse createIncome(IncomeRequest request) {
+    public TransactionResponse createTransaction(TransactionRequest request) {
         User currentUser = userContextService.getCurrentUser();
         if (currentUser == null) {
             throw new SecurityException("User not authenticated");
         }
 
-        // Валидация категории
         Category category = dataManager.load(Category.class)
                 .id(request.getCategoryId())
                 .optional()
@@ -130,31 +117,26 @@ public class IncomeService {
             throw new AccessDeniedException("Access denied: Category belongs to another user");
         }
 
-        if (!category.getType().equals(CategoryType.INCOME)) {
-            throw new InvalidCategoryTypeException("Category must be of type INCOME");
-        }
+        Transaction transaction = dataManager.create(Transaction.class);
+        transaction.setUser(currentUser);
+        transaction.setCategory(category);
+        transaction.setAmount(request.getAmount());
+        transaction.setOperationDate(request.getOperationDate());
+        transaction.setDescription(request.getDescription());
 
-        Transaction income = dataManager.create(Transaction.class);
-        income.setUser(currentUser);
-        income.setCategory(category);
-        income.setAmount(request.getAmount());
-        income.setOperationDate(request.getOperationDate());
-        income.setDescription(request.getDescription());
-
-        income = dataManager.save(income);
+        transaction = dataManager.save(transaction);
 
         FetchPlan fetchPlan = createTransactionFetchPlan();
-        income = dataManager.load(Transaction.class)
-                .id(income.getId())
+        transaction = dataManager.load(Transaction.class)
+                .id(transaction.getId())
                 .fetchPlan(fetchPlan)
                 .one();
 
-        return mapToResponse(income);
+        return mapToResponse(transaction);
     }
 
-    
     @Transactional
-    public IncomeResponse updateIncome(UUID id, IncomeRequest request) {
+    public TransactionResponse updateTransaction(UUID id, TransactionRequest request) {
         User currentUser = userContextService.getCurrentUser();
         if (currentUser == null) {
             throw new SecurityException("User not authenticated");
@@ -162,21 +144,16 @@ public class IncomeService {
 
         FetchPlan fetchPlan = createTransactionFetchPlan();
 
-        Transaction income = dataManager.load(Transaction.class)
+        Transaction transaction = dataManager.load(Transaction.class)
                 .id(id)
                 .fetchPlan(fetchPlan)
                 .optional()
-                .orElseThrow(() -> new EntityNotFoundException("Income", id));
+                .orElseThrow(() -> new EntityNotFoundException("Transaction", id));
 
-        if (!income.getUser().getId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("Access denied: Income belongs to another user");
+        if (!transaction.getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied: Transaction belongs to another user");
         }
 
-        if (!income.getCategory().getType().equals(CategoryType.INCOME)) {
-            throw new InvalidCategoryTypeException("This transaction is not an income");
-        }
-
-        // Валидация новой категории
         Category category = dataManager.load(Category.class)
                 .id(request.getCategoryId())
                 .optional()
@@ -186,38 +163,33 @@ public class IncomeService {
             throw new AccessDeniedException("Access denied: Category belongs to another user");
         }
 
-        if (!category.getType().equals(CategoryType.INCOME)) {
-            throw new InvalidCategoryTypeException("Category must be of type INCOME");
-        }
+        transaction.setCategory(category);
+        transaction.setAmount(request.getAmount());
+        transaction.setOperationDate(request.getOperationDate());
+        transaction.setDescription(request.getDescription());
 
-        income.setCategory(category);
-        income.setAmount(request.getAmount());
-        income.setOperationDate(request.getOperationDate());
-        income.setDescription(request.getDescription());
+        transaction = dataManager.save(transaction);
 
-        income = dataManager.save(income);
-
-        return mapToResponse(income);
+        return mapToResponse(transaction);
     }
 
-    
     @Transactional
-    public void deleteIncome(UUID id) {
+    public void deleteTransaction(UUID id) {
         User currentUser = userContextService.getCurrentUser();
         if (currentUser == null) {
             throw new SecurityException("User not authenticated");
         }
 
-        Transaction income = dataManager.load(Transaction.class)
+        Transaction transaction = dataManager.load(Transaction.class)
                 .id(id)
                 .optional()
-                .orElseThrow(() -> new EntityNotFoundException("Income", id));
+                .orElseThrow(() -> new EntityNotFoundException("Transaction", id));
 
-        if (!income.getUser().getId().equals(currentUser.getId())) {
-            throw new AccessDeniedException("Access denied: Income belongs to another user");
+        if (!transaction.getUser().getId().equals(currentUser.getId())) {
+            throw new AccessDeniedException("Access denied: Transaction belongs to another user");
         }
 
-        dataManager.remove(income);
+        dataManager.remove(transaction);
     }
 
     private FetchPlan createTransactionFetchPlan() {
@@ -236,8 +208,8 @@ public class IncomeService {
                 .build();
     }
 
-    private IncomeResponse mapToResponse(Transaction transaction) {
-        IncomeResponse response = new IncomeResponse();
+    private TransactionResponse mapToResponse(Transaction transaction) {
+        TransactionResponse response = new TransactionResponse();
         response.setId(transaction.getId());
         response.setAmount(transaction.getAmount());
         response.setOperationDate(transaction.getOperationDate());

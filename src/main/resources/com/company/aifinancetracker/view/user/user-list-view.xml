@@ -65,7 +65,6 @@
                 <column property="username"/>
                 <column property="firstName"/>
                 <column property="lastName"/>
-                <column property="email"/>
                 <column property="timeZoneId"/>
                 <column property="active"/>
             </columns>

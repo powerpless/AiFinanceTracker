@@ -21,6 +21,10 @@ out/
 ### VS Code ###
 .vscode/
 
+### Claude Code / OMC local state ###
+.claude/
+.omc/
+
 # The following files are generated/updated by vaadin-gradle-plugin
 node_modules/
 src/main/frontend/generated/

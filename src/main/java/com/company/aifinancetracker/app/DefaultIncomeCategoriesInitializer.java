@@ -30,6 +30,19 @@ public class DefaultIncomeCategoriesInitializer {
             "Иные доходы"
     );
 
+    private static final List<String> DEFAULT_EXPENSE_CATEGORIES = Arrays.asList(
+            "Продукты",
+            "Транспорт",
+            "Жильё",
+            "Коммунальные услуги",
+            "Здоровье",
+            "Развлечения",
+            "Одежда",
+            "Образование",
+            "Подарки",
+            "Прочие расходы"
+    );
+
     public DefaultIncomeCategoriesInitializer(DataManager dataManager) {
         this.dataManager = dataManager;
     }
@@ -48,6 +61,7 @@ public class DefaultIncomeCategoriesInitializer {
     @Authenticated
     @Transactional
     public void initializeDefaultCategoriesForUser(User user) {
+        // Initialize income categories
         for (String categoryName : DEFAULT_INCOME_CATEGORIES) {
             List<Category> existingCategories = dataManager.load(Category.class)
                     .query("select e from Category e where e.user.id = :userId and e.name = :name")
@@ -64,6 +78,26 @@ public class DefaultIncomeCategoriesInitializer {
 
                 dataManager.save(category);
                 log.info("Created default income category '{}' for user '{}'", categoryName, user.getUsername());
+            }
+        }
+
+        // Initialize expense categories
+        for (String categoryName : DEFAULT_EXPENSE_CATEGORIES) {
+            List<Category> existingCategories = dataManager.load(Category.class)
+                    .query("select e from Category e where e.user.id = :userId and e.name = :name")
+                    .parameter("userId", user.getId())
+                    .parameter("name", categoryName)
+                    .list();
+
+            if (existingCategories.isEmpty()) {
+                Category category = dataManager.create(Category.class);
+                category.setUser(user);
+                category.setName(categoryName);
+                category.setType(CategoryType.EXPENSE);
+                category.setSystemCategory(true);
+
+                dataManager.save(category);
+                log.info("Created default expense category '{}' for user '{}'", categoryName, user.getUsername());
             }
         }
     }
