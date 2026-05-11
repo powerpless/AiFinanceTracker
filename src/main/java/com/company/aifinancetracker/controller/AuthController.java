@@ -2,6 +2,8 @@ package com.company.aifinancetracker.controller;
 
 import com.company.aifinancetracker.dto.*;
 import com.company.aifinancetracker.service.AuthService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,6 +16,8 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Auth", description = "Register, login, refresh and logout. Public — no JWT required.")
+@SecurityRequirements
 public class AuthController {
 
     private final AuthService authService;
@@ -50,6 +54,25 @@ public class AuthController {
             error.put("error", "Invalid username or password");
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
         }
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<?> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        try {
+            AuthResponse response = authService.refreshTokens(request);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            Map<String, String> error = new HashMap<>();
+            error.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout() {
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Logged out. Discard the access and refresh tokens on the client side.");
+        return ResponseEntity.ok(response);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

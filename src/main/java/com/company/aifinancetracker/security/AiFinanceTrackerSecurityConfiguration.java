@@ -64,6 +64,23 @@ public class AiFinanceTrackerSecurityConfiguration {
     }
 
     @Bean
+    @Order(JmixSecurityFilterChainOrder.CUSTOM + 2)
+    SecurityFilterChain openApiFilterChain(HttpSecurity http) throws Exception {
+        http.securityMatcher(
+                        "/v3/api-docs/**",
+                        "/v3/api-docs.yaml",
+                        "/swagger-ui/**",
+                        "/swagger-ui.html"
+                )
+                .csrf(AbstractHttpConfigurer::disable)
+                .authorizeHttpRequests(authorize ->
+                        authorize.anyRequest().permitAll()
+                );
+
+        return http.build();
+    }
+
+    @Bean
     public AuthenticationProvider daoAuthenticationProvider() {
         DaoAuthenticationProvider authProvider = new DaoAuthenticationProvider();
         authProvider.setUserDetailsService(userDetailsService);

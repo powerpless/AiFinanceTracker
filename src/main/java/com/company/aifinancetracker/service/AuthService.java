@@ -79,6 +79,33 @@ public class AuthService {
         return new AuthResponse(accessToken, refreshToken);
     }
 
+    public AuthResponse refreshTokens(RefreshTokenRequest request) {
+        String refreshToken = request.getRefreshToken();
+        String username;
+        try {
+            username = jwtService.extractUsername(refreshToken);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
+
+        if (username == null) {
+            throw new IllegalArgumentException("Invalid refresh token");
+        }
+
+        UserDetails user = userDetailsService.loadUserByUsername(username);
+        if (!user.isEnabled()) {
+            throw new IllegalArgumentException("Account is not active");
+        }
+
+        if (!jwtService.isRefreshTokenValid(refreshToken, user)) {
+            throw new IllegalArgumentException("Refresh token is expired or invalid");
+        }
+
+        String newAccessToken = jwtService.generateToken(user);
+        String newRefreshToken = jwtService.generateRefreshToken(user);
+        return new AuthResponse(newAccessToken, newRefreshToken);
+    }
+
     @Authenticated
     private boolean usernameExists(String username) {
         List<User> users = dataManager.load(User.class)

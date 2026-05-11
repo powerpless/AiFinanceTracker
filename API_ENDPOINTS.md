@@ -1,5 +1,9 @@
 # API Endpoints Documentation
 
+> **Интерактивная документация:** после запуска бэка откройте `http://localhost:8080/swagger-ui.html` — все endpoint'ы со схемами, прямо в браузере можно тыкать (нажмите Authorize и введите `Bearer <access_token>`).
+>
+> **Сырой OpenAPI 3 spec:** `http://localhost:8080/v3/api-docs` (JSON) — годится для генерации мобильных клиентов через OpenAPI Generator.
+
 ## Аутентификация
 
 ### POST /api/auth/register
@@ -22,6 +26,34 @@
   "password": "Password123"
 }
 ```
+**Ответ:**
+```json
+{
+  "access_token": "eyJ...",
+  "refresh_token": "eyJ...",
+  "token_type": "Bearer"
+}
+```
+- `access_token` — короткоживущий (24 часа), используется для всех `/api/**` запросов в header'е `Authorization: Bearer <token>`
+- `refresh_token` — долгоживущий (7 дней), используется только для получения новой пары токенов через `/api/auth/refresh`
+
+### POST /api/auth/refresh
+Обновление пары токенов. Используется когда access-токен истёк или скоро истечёт.
+```json
+{
+  "refreshToken": "eyJ..."
+}
+```
+**Ответ:** новая пара `access_token` + `refresh_token` (старый refresh при этом остаётся валидным до своего срока — для server-side revocation нужно отдельное хранилище).
+
+**Ошибки:**
+- `401 UNAUTHORIZED` — refresh-токен невалиден/протух или это access-токен вместо refresh
+- `400 VALIDATION_FAILED` — поле `refreshToken` пустое
+
+### POST /api/auth/logout
+Stateless logout. На стороне сервера ничего не происходит — клиент должен сам удалить access и refresh из локального хранилища. JWT всегда stateless; для honest revocation нужно отдельное хранилище отозванных токенов (out of scope для дипломной).
+
+**Ответ:** `200 OK` с сообщением «Discard the tokens on the client side».
 
 ---
 

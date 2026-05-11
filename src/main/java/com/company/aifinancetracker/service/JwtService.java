@@ -35,16 +35,38 @@ public class JwtService {
         return claimsResolver.apply(claims);
     }
 
+    public static final String TOKEN_TYPE_CLAIM = "type";
+    public static final String TOKEN_TYPE_ACCESS = "access";
+    public static final String TOKEN_TYPE_REFRESH = "refresh";
+
     public String generateToken(UserDetails userDetails) {
-        return generateToken(new HashMap<>(), userDetails);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(TOKEN_TYPE_CLAIM, TOKEN_TYPE_ACCESS);
+        return buildToken(claims, userDetails, jwtExpiration);
     }
 
     public String generateToken(Map<String, Object> extraClaims, UserDetails userDetails) {
-        return buildToken(extraClaims, userDetails, jwtExpiration);
+        Map<String, Object> claims = new HashMap<>(extraClaims);
+        claims.putIfAbsent(TOKEN_TYPE_CLAIM, TOKEN_TYPE_ACCESS);
+        return buildToken(claims, userDetails, jwtExpiration);
     }
 
     public String generateRefreshToken(UserDetails userDetails) {
-        return buildToken(new HashMap<>(), userDetails, refreshExpiration);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(TOKEN_TYPE_CLAIM, TOKEN_TYPE_REFRESH);
+        return buildToken(claims, userDetails, refreshExpiration);
+    }
+
+    public String extractTokenType(String token) {
+        return extractClaim(token, claims -> {
+            Object type = claims.get(TOKEN_TYPE_CLAIM);
+            return type == null ? TOKEN_TYPE_ACCESS : type.toString();
+        });
+    }
+
+    public boolean isRefreshTokenValid(String token, UserDetails userDetails) {
+        return isTokenValid(token, userDetails)
+                && TOKEN_TYPE_REFRESH.equals(extractTokenType(token));
     }
 
     private String buildToken(
