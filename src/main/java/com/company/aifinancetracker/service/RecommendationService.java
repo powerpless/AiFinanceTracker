@@ -36,7 +36,7 @@ public class RecommendationService {
 
     private static final Logger log = LoggerFactory.getLogger(RecommendationService.class);
     private static final int HISTORY_MONTHS = 6;
-    private static final double DEFAULT_Z_THRESHOLD = 2.0;
+    private static final double DEFAULT_Z_THRESHOLD = 1.7;
     private static final int DEFAULT_SAVINGS_HORIZON = 3;
     private static final DateTimeFormatter MONTH_KEY_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
 
@@ -60,14 +60,16 @@ public class RecommendationService {
     @Transactional(readOnly = true)
     public List<RecommendationResponse> getActiveForCurrentUser() {
         User user = requireCurrentUser();
-        List<Recommendation> active = dataManager.load(Recommendation.class)
+        List<Recommendation> all = dataManager.load(Recommendation.class)
                 .query("select e from Recommendation e " +
-                        "where e.user.id = :userId and e.status = :status " +
+                        "where e.user.id = :userId " +
                         "order by e.generatedDate desc")
                 .parameter("userId", user.getId())
-                .parameter("status", RecommendationStatus.ACTIVE)
                 .list();
-        return active.stream().map(this::mapToResponse).collect(Collectors.toList());
+        return all.stream()
+                .filter(r -> RecommendationStatus.ACTIVE.equals(r.getStatus()))
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
     }
 
     @Transactional
@@ -99,6 +101,16 @@ public class RecommendationService {
         MlDtos.AnomalyResponse anomalies = mlClient.detectAnomalies(
                 new MlDtos.AnomalyRequest(txPoints, DEFAULT_Z_THRESHOLD)
         );
+        log.info("ML response: forecast.predictions={}, anomalies={} (inspected={})",
+                forecast.predictions() == null ? 0 : forecast.predictions().size(),
+                anomalies.anomalies() == null ? 0 : anomalies.anomalies().size(),
+                anomalies.inspectedCount());
+        if (anomalies.anomalies() != null) {
+            for (MlDtos.AnomalyItem a : anomalies.anomalies()) {
+                log.info("  anomaly: txId={}, amount={}, z={}, severity={}",
+                        a.transactionId(), a.amount(), a.zScore(), a.severity());
+            }
+        }
 
         expirePreviousRecommendations(user);
 
@@ -161,14 +173,15 @@ public class RecommendationService {
     }
 
     private void expirePreviousRecommendations(User user) {
-        List<Recommendation> previous = dataManager.load(Recommendation.class)
-                .query("select e from Recommendation e where e.user.id = :userId and e.status = :status")
+        List<Recommendation> all = dataManager.load(Recommendation.class)
+                .query("select e from Recommendation e where e.user.id = :userId")
                 .parameter("userId", user.getId())
-                .parameter("status", RecommendationStatus.ACTIVE)
                 .list();
-        for (Recommendation r : previous) {
-            r.setStatus(RecommendationStatus.EXPIRED);
-            dataManager.save(r);
+        for (Recommendation r : all) {
+            if (RecommendationStatus.ACTIVE.equals(r.getStatus())) {
+                r.setStatus(RecommendationStatus.EXPIRED);
+                dataManager.save(r);
+            }
         }
     }
 
@@ -176,15 +189,18 @@ public class RecommendationService {
         LocalDate startMonth = LocalDate.now().withDayOfMonth(1).minusMonths(HISTORY_MONTHS - 1L);
         OffsetDateTime startDate = startMonth.atStartOfDay().atOffset(ZoneOffset.UTC);
 
-        return dataManager.load(Transaction.class)
+        List<Transaction> all = dataManager.load(Transaction.class)
                 .query("select e from Transaction_ e " +
                         "where e.user.id = :userId " +
-                        "  and e.category.type = :type " +
                         "  and e.operationDate >= :startDate")
                 .parameter("userId", user.getId())
-                .parameter("type", CategoryType.EXPENSE)
                 .parameter("startDate", startDate)
                 .list();
+
+        return all.stream()
+                .filter(t -> t.getCategory() != null
+                        && CategoryType.EXPENSE.equals(t.getCategory().getType()))
+                .toList();
     }
 
     private List<MlDtos.MonthlySpend> aggregateMonthly(List<Transaction> transactions) {

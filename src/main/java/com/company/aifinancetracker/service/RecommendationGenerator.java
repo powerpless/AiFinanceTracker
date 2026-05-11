@@ -15,6 +15,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 
 @Component
@@ -47,7 +48,7 @@ public class RecommendationGenerator {
                     p.categoryName(), p.predictedAmount(), p.confidence()
             ));
             r.setRelatedCategoryId(parseUuid(p.categoryId()));
-            r.setMetadata(String.format(
+            r.setMetadata(String.format(Locale.ROOT,
                     "{\"predicted\":%.2f,\"confidence\":%.3f,\"method\":\"%s\",\"trend\":\"%s\"}",
                     p.predictedAmount(), p.confidence(), p.method(), p.trend()
             ));
@@ -61,17 +62,20 @@ public class RecommendationGenerator {
         if (anomalies == null || anomalies.anomalies() == null) return result;
 
         for (MlDtos.AnomalyItem a : anomalies.anomalies()) {
-            if (!"high".equals(a.severity()) && !"critical".equals(a.severity())) continue;
+            String severityLabel = switch (a.severity()) {
+                case "critical" -> "критическая";
+                case "high" -> "значимая";
+                default -> "заметная";
+            };
 
             Recommendation r = newRecommendation(user, RecommendationType.ANOMALY);
             r.setTitle(String.format("Аномальная трата: %s", a.categoryName()));
             r.setMessage(String.format(
                     "%s Это %s аномалия (z-score=%.2f, среднее по категории %.2f ₽).",
-                    a.reason(), a.severity().equals("critical") ? "критическая" : "значимая",
-                    a.zScore(), a.categoryMean()
+                    a.reason(), severityLabel, a.zScore(), a.categoryMean()
             ));
             r.setRelatedCategoryId(parseUuid(a.categoryId()));
-            r.setMetadata(String.format(
+            r.setMetadata(String.format(Locale.ROOT,
                     "{\"transactionId\":\"%s\",\"zScore\":%.3f,\"mean\":%.2f,\"std\":%.2f,\"severity\":\"%s\"}",
                     a.transactionId(), a.zScore(), a.categoryMean(), a.categoryStd(), a.severity()
             ));
@@ -113,7 +117,7 @@ public class RecommendationGenerator {
             ));
             r.setRelatedCategoryId(categoryId);
             r.setSavingsEstimate(savings);
-            r.setMetadata(String.format(
+            r.setMetadata(String.format(Locale.ROOT,
                     "{\"cutPercent\":%.1f,\"horizonMonths\":%d,\"baseline\":%.2f,\"withCuts\":%.2f}",
                     DEFAULT_SUGGESTED_CUT_PERCENT, SAVINGS_HORIZON_MONTHS,
                     sim.totalBaseline(), sim.totalWithCuts()
