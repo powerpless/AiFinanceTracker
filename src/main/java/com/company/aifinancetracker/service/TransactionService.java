@@ -4,6 +4,7 @@ import com.company.aifinancetracker.dto.CategoryResponse;
 import com.company.aifinancetracker.dto.TransactionRequest;
 import com.company.aifinancetracker.dto.TransactionResponse;
 import com.company.aifinancetracker.entity.Category;
+import com.company.aifinancetracker.entity.CategoryType;
 import com.company.aifinancetracker.entity.Transaction;
 import com.company.aifinancetracker.entity.User;
 import com.company.aifinancetracker.exception.AccessDeniedException;
@@ -26,11 +27,13 @@ public class TransactionService {
     private final DataManager dataManager;
     private final UserContextService userContextService;
     private final FetchPlans fetchPlans;
+    private final BalanceService balanceService;
 
-    public TransactionService(DataManager dataManager, UserContextService userContextService, FetchPlans fetchPlans) {
+    public TransactionService(DataManager dataManager, UserContextService userContextService, FetchPlans fetchPlans, BalanceService balanceService) {
         this.dataManager = dataManager;
         this.userContextService = userContextService;
         this.fetchPlans = fetchPlans;
+        this.balanceService = balanceService;
     }
 
     @Transactional(readOnly = true)
@@ -117,6 +120,10 @@ public class TransactionService {
             throw new AccessDeniedException("Access denied: Category belongs to another user");
         }
 
+        if (CategoryType.EXPENSE.equals(category.getType())) {
+            balanceService.assertCanCreateExpense(currentUser, request.getAmount());
+        }
+
         Transaction transaction = dataManager.create(Transaction.class);
         transaction.setUser(currentUser);
         transaction.setCategory(category);
@@ -161,6 +168,10 @@ public class TransactionService {
 
         if (!category.getUser().getId().equals(currentUser.getId())) {
             throw new AccessDeniedException("Access denied: Category belongs to another user");
+        }
+
+        if (CategoryType.EXPENSE.equals(category.getType())) {
+            balanceService.assertCanUpdateExpense(currentUser, id, request.getAmount());
         }
 
         transaction.setCategory(category);

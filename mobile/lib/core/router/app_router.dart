@@ -12,11 +12,16 @@ import '../../features/recommendations/presentation/recommendations_screen.dart'
 import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/transactions/presentation/transaction_form_screen.dart';
 import '../../features/transactions/presentation/transactions_screen.dart';
+import '../../widgets/app_shell.dart';
+
+final _rootKey = GlobalKey<NavigatorState>();
+final _shellKey = GlobalKey<NavigatorState>();
 
 final routerProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthChangeNotifier(ref);
 
   return GoRouter(
+    navigatorKey: _rootKey,
     initialLocation: '/',
     refreshListenable: notifier,
     redirect: (context, state) {
@@ -35,10 +40,6 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
-        path: '/',
-        builder: (context, state) => const HomeScreen(),
-      ),
-      GoRoute(
         path: '/login',
         builder: (context, state) => const LoginScreen(),
       ),
@@ -47,14 +48,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
-        path: '/settings',
-        builder: (context, state) => const SettingsScreen(),
-      ),
-      GoRoute(
+        parentNavigatorKey: _rootKey,
         path: '/transactions',
         builder: (context, state) => const TransactionsScreen(),
       ),
       GoRoute(
+        parentNavigatorKey: _rootKey,
         path: '/transactions/new',
         builder: (context, state) {
           final categoryId = state.uri.queryParameters['categoryId'];
@@ -68,13 +67,44 @@ final routerProvider = Provider<GoRouter>((ref) {
           );
         },
       ),
-      GoRoute(
-        path: '/dashboard',
-        builder: (context, state) => const DashboardPage(),
-      ),
-      GoRoute(
-        path: '/recommendations',
-        builder: (context, state) => const RecommendationsScreen(),
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(
+            navigatorKey: _shellKey,
+            routes: [
+              GoRoute(
+                path: '/',
+                builder: (context, state) => const HomeScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/dashboard',
+                builder: (context, state) => const DashboardPage(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/recommendations',
+                builder: (context, state) => const RecommendationsScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                builder: (context, state) => const SettingsScreen(),
+              ),
+            ],
+          ),
+        ],
       ),
     ],
   );

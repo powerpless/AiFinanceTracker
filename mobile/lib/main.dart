@@ -4,6 +4,7 @@ import 'package:intl/date_symbol_data_local.dart';
 
 import 'core/router/app_router.dart';
 import 'features/auth/auth_providers.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,13 +34,9 @@ class _FinTrackerAppState extends ConsumerState<FinTrackerApp> {
     return MaterialApp.router(
       title: 'AI Finance Tracker',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(),
-        ),
-      ),
+      theme: buildDarkTheme(),
+      darkTheme: buildDarkTheme(),
+      themeMode: ThemeMode.dark,
       routerConfig: router,
     );
   }

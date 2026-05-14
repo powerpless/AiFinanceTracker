@@ -17,7 +17,7 @@ enum Currency {
     for (final c in Currency.values) {
       if (c.code == code) return c;
     }
-    return Currency.rub;
+    return Currency.kzt;
   }
 }
 
@@ -41,7 +41,7 @@ class CurrencyController extends Notifier<Currency> {
   @override
   Currency build() {
     _loadFromStorage();
-    return Currency.rub;
+    return Currency.kzt;
   }
 
   Future<void> _loadFromStorage() async {

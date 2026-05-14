@@ -1,6 +1,6 @@
 import 'package:intl/intl.dart';
 
-String formatMoney(double value, {String symbol = '₽', bool precise = false}) {
+String formatMoney(double value, {String symbol = '₸', bool precise = false}) {
   return NumberFormat.currency(
     locale: 'ru_RU',
     symbol: symbol,

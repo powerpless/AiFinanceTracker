@@ -28,11 +28,13 @@ public class ExpenseService {
     private final DataManager dataManager;
     private final UserContextService userContextService;
     private final FetchPlans fetchPlans;
+    private final BalanceService balanceService;
 
-    public ExpenseService(DataManager dataManager, UserContextService userContextService, FetchPlans fetchPlans) {
+    public ExpenseService(DataManager dataManager, UserContextService userContextService, FetchPlans fetchPlans, BalanceService balanceService) {
         this.dataManager = dataManager;
         this.userContextService = userContextService;
         this.fetchPlans = fetchPlans;
+        this.balanceService = balanceService;
     }
 
     @Transactional(readOnly = true)
@@ -129,6 +131,8 @@ public class ExpenseService {
             throw new InvalidCategoryTypeException("Category must be of type EXPENSE");
         }
 
+        balanceService.assertCanCreateExpense(currentUser, request.getAmount());
+
         Transaction expense = dataManager.create(Transaction.class);
         expense.setUser(currentUser);
         expense.setCategory(category);
@@ -182,6 +186,8 @@ public class ExpenseService {
         if (!category.getType().equals(CategoryType.EXPENSE)) {
             throw new InvalidCategoryTypeException("Category must be of type EXPENSE");
         }
+
+        balanceService.assertCanUpdateExpense(currentUser, id, request.getAmount());
 
         expense.setCategory(category);
         expense.setAmount(request.getAmount());
