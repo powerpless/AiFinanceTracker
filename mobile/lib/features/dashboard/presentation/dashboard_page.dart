@@ -102,6 +102,30 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       orElse: () => const <TransactionItem>[],
     );
 
+    final range = _periodRange();
+    final periodTxs = transactions
+        .where((t) =>
+            !t.operationDate.isBefore(range.start) &&
+            t.operationDate.isBefore(range.end))
+        .toList();
+
+    double periodIncome = 0;
+    double periodExpense = 0;
+    for (final t in periodTxs) {
+      final type = t.category?.type;
+      if (type == CategoryType.income) {
+        periodIncome += t.amount;
+      } else if (type == CategoryType.expense) {
+        periodExpense += t.amount;
+      }
+    }
+    final periodSaldo = periodIncome - periodExpense;
+
+    final topExpense = _topCategoriesFor(periodTxs, CategoryType.expense);
+    final topIncome = _topCategoriesFor(periodTxs, CategoryType.income);
+    final periodLabel = _periodLabel(_period);
+    final periodLabelUpper = periodLabel.toUpperCase();
+
     final trend = _buildBalanceTrend(
       currentBalance: summary.currentBalance,
       transactions: transactions,
@@ -126,34 +150,38 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
             child: _StatPair(
-              income: summary.monthIncome,
-              expense: summary.monthExpense,
+              income: periodIncome,
+              expense: periodExpense,
               symbol: symbol,
+              periodLabel: periodLabel,
             ),
           ),
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
             child: _SaldoCard(
-              saldo: summary.monthBalance,
-              income: summary.monthIncome,
+              saldo: periodSaldo,
+              income: periodIncome,
               symbol: symbol,
+              periodLabelUpper: periodLabelUpper,
             ),
           ),
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
             child: _TopExpensesCard(
-              items: summary.topExpenseCategories,
+              items: topExpense,
               symbol: symbol,
+              periodLabelUpper: periodLabelUpper,
             ),
           ),
           const SizedBox(height: 14),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.screen),
             child: _TopIncomesCard(
-              items: summary.topIncomeCategories,
+              items: topIncome,
               symbol: symbol,
+              periodLabelUpper: periodLabelUpper,
             ),
           ),
           if (cashflow.isNotEmpty) ...[
@@ -166,6 +194,73 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         ],
       ),
     );
+  }
+
+  ({DateTime start, DateTime end}) _periodRange() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    switch (_period) {
+      case _Period.day:
+        return (start: today, end: tomorrow);
+      case _Period.week:
+        return (
+          start: today.subtract(const Duration(days: 6)),
+          end: tomorrow,
+        );
+      case _Period.month:
+        return (
+          start: DateTime(now.year, now.month, 1),
+          end: DateTime(now.year, now.month + 1, 1),
+        );
+      case _Period.year:
+        return (
+          start: DateTime(now.year, 1, 1),
+          end: DateTime(now.year + 1, 1, 1),
+        );
+    }
+  }
+
+  String _periodLabel(_Period p) {
+    switch (p) {
+      case _Period.day:
+        return 'за день';
+      case _Period.week:
+        return 'за неделю';
+      case _Period.month:
+        return 'за месяц';
+      case _Period.year:
+        return 'за год';
+    }
+  }
+
+  List<CategorySummary> _topCategoriesFor(
+    List<TransactionItem> txs,
+    CategoryType type,
+  ) {
+    final sums = <String, _CategoryAcc>{};
+    double total = 0;
+    for (final t in txs) {
+      final c = t.category;
+      if (c == null || c.type != type) continue;
+      total += t.amount;
+      final acc = sums.putIfAbsent(c.id, () => _CategoryAcc(c.name));
+      acc.sum += t.amount;
+      acc.count += 1;
+    }
+    final typeWire = type == CategoryType.income ? 'INCOME' : 'EXPENSE';
+    final result = sums.entries
+        .map((e) => CategorySummary(
+              categoryId: e.key,
+              categoryName: e.value.name,
+              categoryType: typeWire,
+              totalAmount: e.value.sum,
+              transactionCount: e.value.count,
+              percentage: total > 0 ? (e.value.sum / total) * 100 : 0,
+            ))
+        .toList()
+      ..sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+    return result.take(5).toList();
   }
 
   List<double> _buildBalanceTrend({
@@ -429,7 +524,7 @@ class _BalanceHero extends StatelessWidget {
                     ),
                   const SizedBox(width: 6),
                   const Text(
-                    'за месяц',
+                    'за 30 дней',
                     style: TextStyle(color: AppColors.textMid, fontSize: 11.5),
                   ),
                 ],
@@ -513,11 +608,13 @@ class _StatPair extends StatelessWidget {
   final double income;
   final double expense;
   final String symbol;
+  final String periodLabel;
 
   const _StatPair({
     required this.income,
     required this.expense,
     required this.symbol,
+    required this.periodLabel,
   });
 
   @override
@@ -526,7 +623,7 @@ class _StatPair extends StatelessWidget {
       children: [
         Expanded(
           child: _StatCard(
-            label: 'Доход за месяц',
+            label: 'Доход $periodLabel',
             amount: income,
             symbol: symbol,
             icon: Icons.south_west,
@@ -537,7 +634,7 @@ class _StatPair extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: _StatCard(
-            label: 'Расход за месяц',
+            label: 'Расход $periodLabel',
             amount: expense,
             symbol: symbol,
             icon: Icons.north_east,
@@ -644,11 +741,13 @@ class _SaldoCard extends StatelessWidget {
   final double saldo;
   final double income;
   final String symbol;
+  final String periodLabelUpper;
 
   const _SaldoCard({
     required this.saldo,
     required this.income,
     required this.symbol,
+    required this.periodLabelUpper,
   });
 
   @override
@@ -691,9 +790,9 @@ class _SaldoCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'САЛЬДО ЗА МЕСЯЦ',
-                      style: TextStyle(
+                    Text(
+                      'САЛЬДО $periodLabelUpper',
+                      style: const TextStyle(
                         color: AppColors.textDim,
                         fontSize: 10.5,
                         letterSpacing: 0.3,
@@ -777,16 +876,21 @@ class _SaldoCard extends StatelessWidget {
 class _TopExpensesCard extends StatelessWidget {
   final List<CategorySummary> items;
   final String symbol;
+  final String periodLabelUpper;
 
-  const _TopExpensesCard({required this.items, required this.symbol});
+  const _TopExpensesCard({
+    required this.items,
+    required this.symbol,
+    required this.periodLabelUpper,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return _EmptySection(
-        title: 'ТОП РАСХОДОВ ЗА МЕСЯЦ',
+        title: 'ТОП РАСХОДОВ $periodLabelUpper',
         icon: Icons.pie_chart_outline,
-        body: 'В этом месяце расходов не было.',
+        body: 'За этот период расходов не было.',
       );
     }
 
@@ -803,8 +907,10 @@ class _TopExpensesCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'ТОП РАСХОДОВ ЗА МЕСЯЦ',
-            icon: Icons.pie_chart_outline),
+        _SectionHeader(
+          title: 'ТОП РАСХОДОВ $periodLabelUpper',
+          icon: Icons.pie_chart_outline,
+        ),
         const SizedBox(height: 8),
         GlowCard(
           variant: GlowCardVariant.hero,
@@ -938,16 +1044,21 @@ class _LegendRow extends StatelessWidget {
 class _TopIncomesCard extends StatelessWidget {
   final List<CategorySummary> items;
   final String symbol;
+  final String periodLabelUpper;
 
-  const _TopIncomesCard({required this.items, required this.symbol});
+  const _TopIncomesCard({
+    required this.items,
+    required this.symbol,
+    required this.periodLabelUpper,
+  });
 
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
       return _EmptySection(
-        title: 'ТОП ДОХОДОВ ЗА МЕСЯЦ',
+        title: 'ТОП ДОХОДОВ $periodLabelUpper',
         icon: Icons.trending_up,
-        body: 'В этом месяце доходов не было.',
+        body: 'За этот период доходов не было.',
       );
     }
     final total = items.fold<double>(0, (s, c) => s + c.totalAmount);
@@ -955,8 +1066,10 @@ class _TopIncomesCard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionHeader(title: 'ТОП ДОХОДОВ ЗА МЕСЯЦ',
-            icon: Icons.trending_up),
+        _SectionHeader(
+          title: 'ТОП ДОХОДОВ $periodLabelUpper',
+          icon: Icons.trending_up,
+        ),
         const SizedBox(height: 8),
         GlowCard(
           variant: GlowCardVariant.card,
@@ -1225,6 +1338,13 @@ class _SectionHeader extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CategoryAcc {
+  final String name;
+  double sum = 0;
+  int count = 0;
+  _CategoryAcc(this.name);
 }
 
 class _EmptySection extends StatelessWidget {

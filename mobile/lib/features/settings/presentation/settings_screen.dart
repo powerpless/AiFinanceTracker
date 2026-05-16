@@ -19,11 +19,6 @@ class SettingsScreen extends ConsumerStatefulWidget {
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Local (non-persistent) preferences. Persisted versions can be wired
   // through providers in a follow-up — backend hasn't exposed them yet.
-  double _budget = 85000;
-  bool _autoCategorize = true;
-  bool _aiTips = true;
-  bool _aiForecast = true;
-  bool _aiAnomaly = true;
   bool _notifDaily = true;
   bool _notifLimit = true;
   bool _notifBig = false;
@@ -36,6 +31,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final auth = ref.watch(authControllerProvider);
     final currency = ref.watch(currencyProvider);
+    final budget = ref.watch(monthlyBudgetProvider);
+    final aiTips = ref.watch(aiSavingsTipsEnabledProvider);
+    final aiForecast = ref.watch(aiTrendForecastEnabledProvider);
+    final aiAnomaly = ref.watch(aiAnomalyEnabledProvider);
 
     return SafeArea(
       bottom: false,
@@ -71,24 +70,29 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   iconColor: AppColors.mint,
                   label: 'Советы по экономии',
                   sub: 'Подсказки, как сократить траты',
-                  value: _aiTips,
-                  onChanged: (v) => setState(() => _aiTips = v),
+                  value: aiTips,
+                  onChanged: (v) => ref
+                      .read(aiSavingsTipsEnabledProvider.notifier)
+                      .set(v),
                 ),
                 _ToggleRow(
                   icon: Icons.trending_up,
                   iconColor: AppColors.accent,
                   label: 'Прогнозы трендов',
                   sub: 'Линейная регрессия по категориям',
-                  value: _aiForecast,
-                  onChanged: (v) => setState(() => _aiForecast = v),
+                  value: aiForecast,
+                  onChanged: (v) => ref
+                      .read(aiTrendForecastEnabledProvider.notifier)
+                      .set(v),
                 ),
                 _ToggleRow(
                   icon: Icons.warning_amber_outlined,
                   iconColor: AppColors.coral,
                   label: 'Аномалии в тратах',
                   sub: 'Уведомлять при необычно крупных операциях',
-                  value: _aiAnomaly,
-                  onChanged: (v) => setState(() => _aiAnomaly = v),
+                  value: aiAnomaly,
+                  onChanged: (v) =>
+                      ref.read(aiAnomalyEnabledProvider.notifier).set(v),
                   last: true,
                 ),
               ],
@@ -99,17 +103,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               label: 'БЮДЖЕТ',
               children: [
                 _BudgetRow(
-                  value: _budget,
+                  value: budget,
                   symbol: currency.symbol,
-                  onChanged: (v) => setState(() => _budget = v),
-                ),
-                _ToggleRow(
-                  icon: Icons.label_outline,
-                  label: 'Автокатегоризация',
-                  sub: 'ML относит операции к категориям',
-                  value: _autoCategorize,
-                  onChanged: (v) => setState(() => _autoCategorize = v),
-                  last: true,
+                  onChanged: (v) =>
+                      ref.read(monthlyBudgetProvider.notifier).setBudget(v),
                 ),
               ],
             ),

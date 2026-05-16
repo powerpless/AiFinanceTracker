@@ -11,3 +11,7 @@ String formatMoney(double value, {String symbol = '₸', bool precise = false}) 
 String formatPercent(double value) {
   return '${value.toStringAsFixed(1)}%';
 }
+
+String localizeCurrency(String text, String symbol) {
+  return text.replaceAll('{currency}', symbol).replaceAll('₽', symbol);
+}

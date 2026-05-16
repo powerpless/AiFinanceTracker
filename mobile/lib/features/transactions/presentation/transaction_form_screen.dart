@@ -110,6 +110,101 @@ class _TransactionFormScreenState
     }
   }
 
+  Future<void> _createCategory() async {
+    final name = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => const _CategoryEditorSheet(title: 'Новая категория'),
+    );
+    final trimmed = name?.trim();
+    if (trimmed == null || trimmed.isEmpty || !mounted) return;
+    try {
+      final created =
+          await ref.read(categoryApiProvider).create(trimmed, _type);
+      ref.invalidate(categoriesProvider);
+      if (!mounted) return;
+      setState(() => _selectedCategoryId = created.id);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final apiErr = e.error;
+      final msg = apiErr is ApiException
+          ? apiErr.message
+          : 'Не удалось создать категорию';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  Future<void> _showCategoryActions(Category category) async {
+    final action = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _CategoryActionsSheet(category: category),
+    );
+    if (!mounted || action == null) return;
+    if (action == 'rename') await _renameCategory(category);
+    if (action == 'delete') await _deleteCategory(category);
+  }
+
+  Future<void> _renameCategory(Category category) async {
+    final newName = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) => _CategoryEditorSheet(
+        title: 'Переименовать',
+        initialValue: category.name,
+      ),
+    );
+    final trimmed = newName?.trim();
+    if (trimmed == null ||
+        trimmed.isEmpty ||
+        trimmed == category.name ||
+        !mounted) {
+      return;
+    }
+    try {
+      await ref
+          .read(categoryApiProvider)
+          .update(category.id, trimmed, category.type);
+      ref.invalidate(categoriesProvider);
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final apiErr = e.error;
+      final msg = apiErr is ApiException
+          ? apiErr.message
+          : 'Не удалось переименовать';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
+  Future<void> _deleteCategory(Category category) async {
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => _DeleteConfirmSheet(name: category.name),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await ref.read(categoryApiProvider).delete(category.id);
+      ref.invalidate(categoriesProvider);
+      if (!mounted) return;
+      if (_selectedCategoryId == category.id) {
+        setState(() => _selectedCategoryId = null);
+      }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final apiErr = e.error;
+      final msg = apiErr is ApiException
+          ? apiErr.message
+          : 'Не удалось удалить категорию';
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(msg)));
+    }
+  }
+
   Future<void> _submit() async {
     if (!_canSave || _submitting) return;
     setState(() => _submitting = true);
@@ -184,6 +279,8 @@ class _TransactionFormScreenState
                           selectedId: _selectedCategoryId,
                           onSelected: (id) =>
                               setState(() => _selectedCategoryId = id),
+                          onCreate: _createCategory,
+                          onCategoryLongPress: _showCategoryActions,
                           onCategoriesLoaded: (list) {
                             if (_initialCategoryApplied) return;
                             _initialCategoryApplied = true;
@@ -582,6 +679,8 @@ class _CategoryGrid extends StatelessWidget {
   final String? selectedId;
   final ValueChanged<String> onSelected;
   final ValueChanged<List<Category>> onCategoriesLoaded;
+  final VoidCallback onCreate;
+  final ValueChanged<Category> onCategoryLongPress;
 
   const _CategoryGrid({
     required this.categoriesAsync,
@@ -589,6 +688,8 @@ class _CategoryGrid extends StatelessWidget {
     required this.selectedId,
     required this.onSelected,
     required this.onCategoriesLoaded,
+    required this.onCreate,
+    required this.onCategoryLongPress,
   });
 
   @override
@@ -626,19 +727,10 @@ class _CategoryGrid extends StatelessWidget {
               onCategoriesLoaded(allCategories);
               final filtered =
                   allCategories.where((c) => c.type == type).toList();
-              if (filtered.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Text(
-                    'Нет категорий этого типа',
-                    style: TextStyle(color: AppColors.textDim),
-                  ),
-                );
-              }
               return GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: filtered.length,
+                itemCount: filtered.length + 1,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 4,
                   crossAxisSpacing: 8,
@@ -646,11 +738,17 @@ class _CategoryGrid extends StatelessWidget {
                   childAspectRatio: 0.95,
                 ),
                 itemBuilder: (context, i) {
+                  if (i == filtered.length) {
+                    return _AddCategoryTile(onTap: onCreate);
+                  }
                   final c = filtered[i];
+                  final canEdit = !c.systemCategory;
                   return _CategoryTile(
                     category: c,
                     active: c.id == selectedId,
                     onTap: () => onSelected(c.id),
+                    onLongPress:
+                        canEdit ? () => onCategoryLongPress(c) : null,
                   );
                 },
               );
@@ -666,11 +764,13 @@ class _CategoryTile extends StatelessWidget {
   final Category category;
   final bool active;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
 
   const _CategoryTile({
     required this.category,
     required this.active,
     required this.onTap,
+    this.onLongPress,
   });
 
   @override
@@ -680,6 +780,7 @@ class _CategoryTile extends StatelessWidget {
       borderRadius: AppRadius.rMd,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         borderRadius: AppRadius.rMd,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
@@ -720,6 +821,338 @@ class _CategoryTile extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddCategoryTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddCategoryTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.bgRaised,
+      borderRadius: AppRadius.rMd,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.rMd,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.rMd,
+            border: Border.all(
+              color: AppColors.accentHair,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: const Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.add, size: 20, color: AppColors.accent),
+              SizedBox(height: 4),
+              Text(
+                'Новая',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10.5, color: AppColors.accent),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────── CATEGORY EDITOR / ACTIONS / DELETE ────────────
+
+class _CategoryEditorSheet extends StatefulWidget {
+  final String title;
+  final String initialValue;
+
+  const _CategoryEditorSheet({
+    required this.title,
+    this.initialValue = '',
+  });
+
+  @override
+  State<_CategoryEditorSheet> createState() => _CategoryEditorSheetState();
+}
+
+class _CategoryEditorSheetState extends State<_CategoryEditorSheet> {
+  late final TextEditingController _ctrl =
+      TextEditingController(text: widget.initialValue);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _ctrl.text.trim();
+    if (value.isEmpty) return;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Padding(
+      padding: EdgeInsets.only(left: 12, right: 12, bottom: 46 + bottomInset),
+      child: GlowCard(
+        variant: GlowCardVariant.hero,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    widget.title,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                FilledButton(
+                  onPressed: _submit,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
+                    minimumSize: const Size(0, 36),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: AppRadius.rSm,
+                    ),
+                  ),
+                  child: const Text(
+                    'Готово',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              maxLength: 100,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              style: const TextStyle(color: AppColors.text, fontSize: 14),
+              decoration: InputDecoration(
+                hintText: 'Например: Книги',
+                hintStyle: const TextStyle(color: AppColors.textFaint),
+                counterText: '',
+                filled: true,
+                fillColor: AppColors.bgSunken,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.hairline),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: AppColors.hairline),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(
+                    color: AppColors.accent,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CategoryActionsSheet extends StatelessWidget {
+  final Category category;
+
+  const _CategoryActionsSheet({required this.category});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 46),
+      child: GlowCard(
+        variant: GlowCardVariant.hero,
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  iconForCategory(category.name),
+                  size: 18,
+                  color: AppColors.textMid,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    category.name,
+                    style: const TextStyle(
+                      color: AppColors.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _ActionRow(
+              icon: Icons.edit_outlined,
+              label: 'Переименовать',
+              color: AppColors.text,
+              onTap: () => Navigator.of(context).pop('rename'),
+            ),
+            const SizedBox(height: 6),
+            _ActionRow(
+              icon: Icons.delete_outline,
+              label: 'Удалить',
+              color: AppColors.coral,
+              onTap: () => Navigator.of(context).pop('delete'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ActionRow({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.bgSunken,
+      borderRadius: AppRadius.rSm,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: AppRadius.rSm,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: AppRadius.rSm,
+            border: Border.all(color: AppColors.hairline),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 10),
+              Text(
+                label,
+                style: TextStyle(color: color, fontSize: 13.5),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteConfirmSheet extends StatelessWidget {
+  final String name;
+
+  const _DeleteConfirmSheet({required this.name});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 46),
+      child: GlowCard(
+        variant: GlowCardVariant.hero,
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Удалить категорию?',
+              style: TextStyle(
+                color: AppColors.text,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '«$name» исчезнет из списка. Транзакции с этой категорией будут заблокированы сервером, если они есть.',
+              style: const TextStyle(
+                color: AppColors.textMid,
+                fontSize: 12.5,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.text,
+                      side: const BorderSide(color: AppColors.hairline),
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.rMd,
+                      ),
+                    ),
+                    child: const Text('Отмена'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => Navigator.of(context).pop(true),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.coral,
+                      padding: const EdgeInsets.symmetric(vertical: 11),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: AppRadius.rMd,
+                      ),
+                    ),
+                    child: const Text('Удалить'),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

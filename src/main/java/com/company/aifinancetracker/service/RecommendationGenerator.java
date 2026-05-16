@@ -43,9 +43,9 @@ public class RecommendationGenerator {
             Recommendation r = newRecommendation(user, RecommendationType.TREND_FORECAST);
             r.setTitle(String.format("Растут расходы: %s", p.categoryName()));
             r.setMessage(String.format(
-                    "По данным за прошлые месяцы прогноз расходов на категорию «%s» в следующем месяце — %.2f ₽. " +
-                    "Тренд возрастающий (модель: линейная регрессия, R²=%.2f). Стоит проверить, что вызывает рост.",
-                    p.categoryName(), p.predictedAmount(), p.confidence()
+                    "По данным за прошлые месяцы прогноз расходов на категорию «%s» в следующем месяце — %.2f {currency}. " +
+                    "Тренд возрастающий. Стоит проверить, что вызывает рост.",
+                    p.categoryName(), p.predictedAmount()
             ));
             r.setRelatedCategoryId(parseUuid(p.categoryId()));
             r.setMetadata(String.format(Locale.ROOT,
@@ -71,8 +71,8 @@ public class RecommendationGenerator {
             Recommendation r = newRecommendation(user, RecommendationType.ANOMALY);
             r.setTitle(String.format("Аномальная трата: %s", a.categoryName()));
             r.setMessage(String.format(
-                    "%s Это %s аномалия (z-score=%.2f, среднее по категории %.2f ₽).",
-                    a.reason(), severityLabel, a.zScore(), a.categoryMean()
+                    "%s Это %s аномалия.",
+                    a.reason(), severityLabel
             ));
             r.setRelatedCategoryId(parseUuid(a.categoryId()));
             r.setMetadata(String.format(Locale.ROOT,
@@ -111,9 +111,9 @@ public class RecommendationGenerator {
             Recommendation r = newRecommendation(user, RecommendationType.SAVINGS_TIP);
             r.setTitle(String.format("Сэкономьте на категории «%s»", p.categoryName()));
             r.setMessage(String.format(
-                    "Если урезать расходы на «%s» на %.0f%%, за %d месяца(ев) сэкономите ≈%s ₽ (%.1f%% от прогноза).",
+                    "Если урезать расходы на «%s» на %.0f%%, за %d месяца(ев) сэкономите ≈%s {currency}.",
                     p.categoryName(), DEFAULT_SUGGESTED_CUT_PERCENT, SAVINGS_HORIZON_MONTHS,
-                    savings.toPlainString(), sim.savingsPercent()
+                    savings.toPlainString()
             ));
             r.setRelatedCategoryId(categoryId);
             r.setSavingsEstimate(savings);

@@ -17,9 +17,6 @@ import '../transactions/data/transaction_models.dart';
 import '../transactions/transaction_providers.dart';
 import 'utils/category_icons.dart';
 
-/// Placeholder monthly budget until settings/profile expose a real value.
-const double _kMonthlyBudget = 85000;
-
 enum _Tab { expense, income }
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -55,7 +52,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget build(BuildContext context) {
     final categoriesAsync = ref.watch(categoriesProvider);
     final transactionsAsync = ref.watch(transactionsProvider);
-    final recommendationsAsync = ref.watch(recommendationsProvider);
+    final recommendationsAsync = ref.watch(visibleRecommendationsProvider);
     final symbol = ref.watch(currencyProvider).symbol;
     final auth = ref.watch(authControllerProvider);
 
@@ -201,7 +198,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               delta: delta,
               prevMonthLabel: prevMonthLabel,
               txCount: monthTxs.length,
-              budget: _kMonthlyBudget,
+              budget: ref.watch(monthlyBudgetProvider),
               onPrev: () => setState(() => _monthOffset -= 1),
               onNext: () => setState(() => _monthOffset += 1),
             ),
@@ -1185,7 +1182,7 @@ class _AiInsightCard extends StatelessWidget {
           if (recommendation.message.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              recommendation.message,
+              localizeCurrency(recommendation.message, symbol),
               style: const TextStyle(
                 color: AppColors.textMid,
                 fontSize: 12.5,

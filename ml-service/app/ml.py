@@ -140,8 +140,8 @@ def detect_anomalies(transactions: List[TransactionPoint], z_threshold: float) -
                     category_std=round(std, 2),
                     severity=_severity(abs(float(z))),
                     reason=(
-                        f"Сумма {row['amount']:.2f} {direction} среднего по категории "
-                        f"({mean:.2f}) в {ratio:.1f}x раз"
+                        f"Сумма {row['amount']:.2f} {direction} среднего {mean:.2f} "
+                        f"в {ratio:.1f} раза."
                     ),
                 )
             )

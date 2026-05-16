@@ -67,7 +67,7 @@ class _RecommendationsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final recsAsync = ref.watch(recommendationsProvider);
+    final recsAsync = ref.watch(visibleRecommendationsProvider);
     final health = ref.watch(mlHealthProvider);
     final symbol = ref.watch(currencyProvider).symbol;
     final transactions = ref.watch(transactionsProvider).maybeWhen(
@@ -880,7 +880,7 @@ class _RecCard extends StatelessWidget {
                       if (recommendation.message.isNotEmpty) ...[
                         const SizedBox(height: 5),
                         Text(
-                          recommendation.message,
+                          localizeCurrency(recommendation.message, symbol),
                           style: const TextStyle(
                             color: AppColors.textMid,
                             fontSize: 12.5,
